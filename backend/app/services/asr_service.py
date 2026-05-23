@@ -5,6 +5,8 @@ import httpx
 from fastapi import UploadFile
 from dotenv import load_dotenv
 
+from app.services.text_service import TextMode, optimize_text
+
 load_dotenv()
 
 
@@ -21,41 +23,24 @@ class ASRServiceError(Exception):
         self.status_code = status_code
 
 
-MOCK_RAW_TEXT = "今天下午三点我们开会讨论语音输入法开发计划"
-MOCK_OPTIMIZED_TEXT = "今天下午三点，我们开会讨论语音输入法开发计划。"
+MOCK_RAW_TEXT = "今天下午三点我们开会讨论语音输入法开发计划然后整理需求"
 
 
-def optimize_text(raw_text: str, mode: str) -> str:
-    text = raw_text.strip()
-    if not text:
-        return ""
-
-    if mode == "study":
-        return text.replace("准确率速度成本还有易用性", "准确率、速度、成本和易用性。")
-
-    if mode == "office" and not text.endswith(("。", "！", "？")):
-        return f"{text}。"
-
-    if text == MOCK_RAW_TEXT:
-        return MOCK_OPTIMIZED_TEXT
-
-    return text if text.endswith(("。", "！", "？")) else f"{text}。"
-
-
-async def transcribe_audio(file: UploadFile, mode: str) -> TranscriptionResult:
+async def transcribe_audio(file: UploadFile, mode: TextMode) -> TranscriptionResult:
     provider = os.getenv("ASR_PROVIDER", "mock").lower()
 
     if provider == "openai":
         raw_text = await transcribe_with_openai(file)
         return TranscriptionResult(
             raw_text=raw_text,
-            optimized_text=optimize_text(raw_text, mode),
+            optimized_text=optimize_text(raw_text, mode).optimized_text,
             provider="openai",
         )
 
+    optimized_text = optimize_text(MOCK_RAW_TEXT, mode).optimized_text
     return TranscriptionResult(
         raw_text=MOCK_RAW_TEXT,
-        optimized_text=MOCK_OPTIMIZED_TEXT,
+        optimized_text=optimized_text,
         provider="mock",
     )
 

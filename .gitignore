@@ -19,6 +19,9 @@ venv/
 *.sqlite
 *.sqlite3
 
+# Local app data
+backend/app/storage/*.json
+
 # Node
 node_modules/
 npm-debug.log*

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import asr
+from app.routers import asr, history, hotword, text
 
 app = FastAPI(
     title="Voice-output API",
@@ -10,6 +10,9 @@ app = FastAPI(
 )
 
 app.include_router(asr.router)
+app.include_router(text.router)
+app.include_router(hotword.router)
+app.include_router(history.router)
 
 app.add_middleware(
     CORSMiddleware,

@@ -1,14 +1,17 @@
+from typing import Literal
+
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from app.services.asr_service import ASRServiceError, transcribe_audio as transcribe_audio_file
 
 router = APIRouter(prefix="/api/asr", tags=["asr"])
+TextMode = Literal["normal", "office", "study"]
 
 
 @router.post("/transcribe")
 async def transcribe_audio(
     file: UploadFile = File(...),
-    mode: str = Form("normal"),
+    mode: TextMode = Form("normal"),
 ) -> dict[str, object]:
     try:
         result = await transcribe_audio_file(file, mode)
