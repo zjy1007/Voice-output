@@ -1,0 +1,7 @@
+interface:
+  display_name: "Voice-output Dev Plan"
+  short_description: "Plan and ship the Voice-output MVP"
+  default_prompt: "Use $voice-output-dev-plan to turn the README into a phased MVP implementation plan."
+
+policy:
+  allow_implicit_invocation: true
