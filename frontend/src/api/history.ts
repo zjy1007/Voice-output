@@ -3,7 +3,7 @@ const API_BASE_URL = "http://127.0.0.1:8000";
 export type HistoryRecord = {
   id: number;
   text: string;
-  mode: "normal" | "office" | "study";
+  mode: "normal" | "office" | "study" | "prompt";
   created_at: string;
 };
 
@@ -30,5 +30,31 @@ export async function saveHistory(text: string, mode: HistoryRecord["mode"]) {
 
   if (!response.ok) {
     throw new Error("保存历史记录失败。");
+  }
+}
+
+export async function updateHistory(
+  id: number,
+  text: string,
+  mode?: HistoryRecord["mode"],
+) {
+  const response = await fetch(`${API_BASE_URL}/api/history/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, mode }),
+  });
+
+  if (!response.ok) {
+    throw new Error("更新历史记录失败。");
+  }
+}
+
+export async function deleteHistory(id: number) {
+  const response = await fetch(`${API_BASE_URL}/api/history/${id}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    throw new Error("删除历史记录失败。");
   }
 }

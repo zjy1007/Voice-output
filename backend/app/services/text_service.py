@@ -6,11 +6,11 @@ from typing import Literal
 import httpx
 from dotenv import load_dotenv
 
-from app.services.hotword_service import apply_hotword_corrections, list_hotwords
+from app.services.hotword_service import apply_hotword_corrections, read_hotword_entries
 
 load_dotenv()
 
-TextMode = Literal["normal", "office", "study"]
+TextMode = Literal["normal", "office", "study", "prompt"]
 
 
 @dataclass(frozen=True)
@@ -60,6 +60,8 @@ def optimize_text_with_rules(text: str, mode: TextMode = "normal") -> TextOptimi
         optimized = optimize_for_office(punctuated)
     elif mode == "study":
         optimized = optimize_for_study(punctuated)
+    elif mode == "prompt":
+        optimized = optimize_for_prompt(punctuated)
     else:
         optimized = punctuated
 
@@ -146,17 +148,30 @@ def build_deepseek_system_prompt(mode: TextMode) -> str:
     if mode == "study":
         return f"{shared_rule} 当前模式是学习笔记：尽量整理为条目化、层次清楚的笔记。"
 
+    if mode == "prompt":
+        return (
+            f"{shared_rule} 当前模式是 Prompt 优化："
+            "请把用户的口语化需求整理成清晰、可直接交给 AI 执行的提示词。"
+            "输出应包含明确任务、背景约束、输出格式和质量要求。"
+        )
+
     return f"{shared_rule} 当前模式是普通输入：保留自然表达，让文本易读即可。"
 
 
 def build_deepseek_user_prompt(text: str) -> str:
-    hotwords = list_hotwords()
+    hotwords = read_hotword_entries()
     if not hotwords:
         return text
 
+    hotword_lines = [
+        f"- {entry.word}"
+        + (f"；可能误识别为：{'、'.join(entry.aliases)}" if entry.aliases else "")
+        for entry in hotwords
+    ]
+
     return (
-        "请优先保留和纠正以下自定义热词："
-        + "、".join(hotwords)
+        "请优先保留和纠正以下自定义热词：\n"
+        + "\n".join(hotword_lines)
         + "\n\n待优化文本："
         + text
     )
@@ -203,6 +218,18 @@ def optimize_for_study(text: str) -> str:
         )
 
     return split_sentences_as_notes(text)
+
+
+def optimize_for_prompt(text: str) -> str:
+    cleaned_text = text.rstrip("。")
+    return (
+        "请根据以下需求完成任务：\n"
+        f"{cleaned_text}。\n\n"
+        "要求：\n"
+        "1. 保留原始意图，不要遗漏关键信息；\n"
+        "2. 输出结构清晰，便于直接执行；\n"
+        "3. 如有不明确之处，先列出需要确认的问题。"
+    )
 
 
 def extract_factor_list(text: str) -> list[str]:

@@ -5,7 +5,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from app.services.asr_service import ASRServiceError, transcribe_audio as transcribe_audio_file
 
 router = APIRouter(prefix="/api/asr", tags=["asr"])
-TextMode = Literal["normal", "office", "study"]
+TextMode = Literal["normal", "office", "study", "prompt"]
 
 
 @router.post("/transcribe")

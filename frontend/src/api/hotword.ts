@@ -1,7 +1,12 @@
+export type HotwordEntry = {
+  word: string;
+  aliases: string[];
+};
+
 const API_BASE_URL = "http://127.0.0.1:8000";
 
 type HotwordListResponse = {
-  data: string[];
+  data: HotwordEntry[];
 };
 
 export async function fetchHotwords() {
@@ -14,11 +19,11 @@ export async function fetchHotwords() {
   return result.data;
 }
 
-export async function createHotword(word: string) {
+export async function createHotword(word: string, aliases: string[]) {
   const response = await fetch(`${API_BASE_URL}/api/hotwords`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ word }),
+    body: JSON.stringify({ word, aliases }),
   });
 
   if (!response.ok) {

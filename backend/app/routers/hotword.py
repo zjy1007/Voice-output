@@ -8,6 +8,7 @@ router = APIRouter(prefix="/api/hotwords", tags=["hotwords"])
 
 class HotwordCreateRequest(BaseModel):
     word: str = Field(..., min_length=1)
+    aliases: list[str] = []
 
 
 @router.get("")
@@ -22,12 +23,12 @@ def get_hotwords() -> dict[str, object]:
 @router.post("")
 def create_hotword(request: HotwordCreateRequest) -> dict[str, object]:
     try:
-        word = add_hotword(request.word)
+        hotword = add_hotword(request.word, request.aliases)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
 
     return {
         "code": 200,
         "message": "hotword added",
-        "data": {"word": word},
+        "data": hotword,
     }

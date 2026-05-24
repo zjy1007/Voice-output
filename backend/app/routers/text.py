@@ -7,7 +7,7 @@ from app.services.text_service import TextOptimizationError, optimize_text_with_
 
 router = APIRouter(prefix="/api/text", tags=["text"])
 
-TextMode = Literal["normal", "office", "study"]
+TextMode = Literal["normal", "office", "study", "prompt"]
 
 
 class TextOptimizeRequest(BaseModel):

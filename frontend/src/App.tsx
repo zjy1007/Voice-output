@@ -1,11 +1,17 @@
 import { useEffect, useState } from "react";
 import "./styles.css";
 import { transcribeAudio } from "./api/asr";
-import { fetchHistory, saveHistory, type HistoryRecord } from "./api/history";
-import { createHotword, fetchHotwords } from "./api/hotword";
+import {
+  deleteHistory,
+  fetchHistory,
+  saveHistory,
+  updateHistory,
+  type HistoryRecord,
+} from "./api/history";
+import { createHotword, fetchHotwords, type HotwordEntry } from "./api/hotword";
 import { useRecorder } from "./hooks/useRecorder";
 
-type TextMode = "normal" | "office" | "study";
+type TextMode = "normal" | "office" | "study" | "prompt";
 
 function App() {
   const {
@@ -23,9 +29,14 @@ function App() {
   const [isUploading, setIsUploading] = useState(false);
   const [mode, setMode] = useState<TextMode>("normal");
   const [hotwordInput, setHotwordInput] = useState("");
-  const [hotwords, setHotwords] = useState<string[]>([]);
+  const [hotwordAliasesInput, setHotwordAliasesInput] = useState("");
+  const [hotwords, setHotwords] = useState<HotwordEntry[]>([]);
   const [history, setHistory] = useState<HistoryRecord[]>([]);
+  const [historySearch, setHistorySearch] = useState("");
   const [actionMessage, setActionMessage] = useState("");
+  const [correctionTarget, setCorrectionTarget] = useState<HistoryRecord | null>(null);
+  const [selectedText, setSelectedText] = useState("");
+  const [replacementText, setReplacementText] = useState("");
 
   useEffect(() => {
     void refreshHotwords();
@@ -38,6 +49,18 @@ function App() {
     finished: "录音结束",
     error: "录音出错",
   }[status];
+
+  const filteredHistory = history.filter((record) => {
+    const query = historySearch.trim().toLowerCase();
+    if (!query) {
+      return true;
+    }
+
+    return [record.text, record.mode, record.created_at]
+      .join(" ")
+      .toLowerCase()
+      .includes(query);
+  });
 
   const handleTranscribe = async () => {
     if (!audioBlob) {
@@ -88,8 +111,9 @@ function App() {
       return;
     }
 
-    await createHotword(hotwordInput);
+    await createHotword(hotwordInput, parseAliases(hotwordAliasesInput));
     setHotwordInput("");
+    setHotwordAliasesInput("");
     setActionMessage("热词已添加");
     await refreshHotwords();
   };
@@ -115,6 +139,45 @@ function App() {
 
     await saveHistory(transcript, mode);
     setActionMessage("历史记录已保存");
+    await refreshHistory();
+  };
+
+  const handleCopyHistory = async (text: string) => {
+    await navigator.clipboard.writeText(text);
+    setActionMessage("历史记录已复制");
+  };
+
+  const handleDeleteHistory = async (record: HistoryRecord) => {
+    await deleteHistory(record.id);
+    setActionMessage("历史记录已删除");
+    if (correctionTarget?.id === record.id) {
+      closeCorrectionDialog();
+    }
+    await refreshHistory();
+  };
+
+  const openCorrectionDialog = (record: HistoryRecord) => {
+    setCorrectionTarget(record);
+    setSelectedText("");
+    setReplacementText("");
+  };
+
+  const closeCorrectionDialog = () => {
+    setCorrectionTarget(null);
+    setSelectedText("");
+    setReplacementText("");
+  };
+
+  const applyCorrection = async () => {
+    if (!correctionTarget || !selectedText || !replacementText.trim()) {
+      return;
+    }
+
+    const correctedText = correctionTarget.text.replace(selectedText, replacementText.trim());
+    await updateHistory(correctionTarget.id, correctedText, correctionTarget.mode);
+    setTranscript(correctedText);
+    setActionMessage("历史记录已纠错");
+    closeCorrectionDialog();
     await refreshHistory();
   };
 
@@ -168,6 +231,13 @@ function App() {
               onClick={() => setMode("study")}
             >
               学习笔记
+            </button>
+            <button
+              className={mode === "prompt" ? "mode-button active" : "mode-button"}
+              type="button"
+              onClick={() => setMode("prompt")}
+            >
+              Prompt优化
             </button>
           </div>
 
@@ -224,16 +294,22 @@ function App() {
               <input
                 value={hotwordInput}
                 onChange={(event) => setHotwordInput(event.target.value)}
-                placeholder="输入人名、项目名、专业词"
+                placeholder="正确词，例如 Whisper"
+              />
+              <input
+                value={hotwordAliasesInput}
+                onChange={(event) => setHotwordAliasesInput(event.target.value)}
+                placeholder="别名/误识别词，用逗号分隔"
               />
               <button className="primary-button" type="button" onClick={handleAddHotword}>
                 添加
               </button>
             </div>
             <div className="chip-list">
-              {hotwords.map((word) => (
-                <span className="chip" key={word}>
-                  {word}
+              {hotwords.map((entry) => (
+                <span className="chip" key={entry.word}>
+                  {entry.word}
+                  {entry.aliases.length ? ` / ${entry.aliases.join("、")}` : ""}
                 </span>
               ))}
             </div>
@@ -241,26 +317,137 @@ function App() {
 
           <section className="side-section">
             <h2>输入历史</h2>
+            <div className="history-search-bar">
+              <div className="search-input-wrap">
+                <span className="search-icon" aria-hidden="true">
+                  ⌕
+                </span>
+                <input
+                  value={historySearch}
+                  onChange={(event) => setHistorySearch(event.target.value)}
+                  placeholder="搜索历史记录"
+                />
+              </div>
+              <button
+                className="secondary-button compact-button"
+                type="button"
+                onClick={() => setHistorySearch("")}
+              >
+                全部
+              </button>
+              <button className="secondary-button compact-button" type="button">
+                选择
+              </button>
+            </div>
+            <p className="history-summary">
+              共 {filteredHistory.length} 条
+              {historySearch.trim() ? ` · 搜索：${historySearch.trim()}` : ""}
+            </p>
             <div className="history-list">
-              {history.map((record) => (
-                <button
+              {filteredHistory.map((record) => (
+                <article
                   className="history-item"
                   key={record.id}
-                  type="button"
-                  onClick={() => setTranscript(record.text)}
                 >
-                  <span>{record.text}</span>
+                  <button
+                    className="history-text"
+                    type="button"
+                    onClick={() => setTranscript(record.text)}
+                  >
+                    {record.text}
+                  </button>
                   <small>
                     {record.mode} · {record.created_at}
                   </small>
-                </button>
+                  <div className="history-actions">
+                    <button
+                      className="text-button warning"
+                      type="button"
+                      onClick={() => openCorrectionDialog(record)}
+                    >
+                      纠错
+                    </button>
+                    <button
+                      className="text-button"
+                      type="button"
+                      onClick={() => void handleCopyHistory(record.text)}
+                    >
+                      复制
+                    </button>
+                    <button
+                      className="text-button danger"
+                      type="button"
+                      onClick={() => void handleDeleteHistory(record)}
+                    >
+                      删除
+                    </button>
+                  </div>
+                </article>
               ))}
             </div>
           </section>
         </div>
       </section>
+
+      {correctionTarget ? (
+        <div className="dialog-backdrop" role="presentation">
+          <section className="correction-dialog" role="dialog" aria-modal="true">
+            <button
+              className="close-button"
+              type="button"
+              aria-label="关闭"
+              onClick={closeCorrectionDialog}
+            >
+              ×
+            </button>
+            <h2>纠错</h2>
+            <p className="dialog-hint">点击或拖选识别错误的字：</p>
+            <div className="token-grid">
+              {[...correctionTarget.text].map((char, index) => (
+                <button
+                  className={selectedText === char ? "token selected" : "token"}
+                  key={`${char}-${index}`}
+                  type="button"
+                  onClick={() => setSelectedText(char)}
+                >
+                  {char}
+                </button>
+              ))}
+            </div>
+            <label className="transcript-label" htmlFor="replacement">
+              正确的词
+            </label>
+            <input
+              id="replacement"
+              value={replacementText}
+              onChange={(event) => setReplacementText(event.target.value)}
+              placeholder="输入正确的词..."
+            />
+            <div className="dialog-actions">
+              <button className="secondary-button" type="button" onClick={closeCorrectionDialog}>
+                取消
+              </button>
+              <button
+                className="primary-button"
+                disabled={!selectedText || !replacementText.trim()}
+                type="button"
+                onClick={() => void applyCorrection()}
+              >
+                添加
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </main>
   );
+}
+
+function parseAliases(value: string) {
+  return value
+    .split(/[,，、\n]/)
+    .map((alias) => alias.trim())
+    .filter(Boolean);
 }
 
 export default App;

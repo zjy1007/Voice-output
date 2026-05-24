@@ -91,16 +91,18 @@ button:disabled {
 }
 
 .mode-selector {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
 }
 
 .mode-button {
-  min-width: 104px;
+  min-width: 0;
+  min-height: 58px;
   color: #46515f;
   background: #ffffff;
   border-color: #c7d0da;
+  font-size: 18px;
 }
 
 .mode-button.active {
@@ -176,7 +178,7 @@ h2 {
 
 .input-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
   gap: 10px;
 }
 
@@ -212,19 +214,76 @@ input {
   gap: 10px;
 }
 
+.history-search-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 12px;
+}
+
+.search-input-wrap {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  min-height: 56px;
+  border: 1px solid #ded8ce;
+  border-radius: 10px;
+  padding: 0 14px;
+  background: #f5f0e8;
+}
+
+.search-icon {
+  color: #5f6670;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.search-input-wrap input {
+  border: 0;
+  background: transparent;
+  font-weight: 700;
+}
+
+.search-input-wrap input:focus {
+  outline: none;
+}
+
+.compact-button {
+  min-width: 88px;
+  min-height: 56px;
+  background: #f5f0e8;
+  border-color: #ded8ce;
+}
+
+.history-summary {
+  margin: 0;
+  color: #8a8f97;
+  font-size: 15px;
+  font-weight: 700;
+}
+
 .history-item {
   display: grid;
   gap: 6px;
   width: 100%;
   min-height: 0;
+  border: 1px solid #e6e1d7;
   border-color: #c7d0da;
   padding: 12px;
   color: #1f2933;
-  background: #ffffff;
+  background: #f3efe6;
   text-align: left;
+  border-radius: 8px;
 }
 
-.history-item span {
+.history-text {
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  padding: 0;
+  color: #1b1f24;
+  background: transparent;
+  text-align: left;
+  font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -232,6 +291,108 @@ input {
 
 .history-item small {
   color: #697586;
+}
+
+.history-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.text-button {
+  min-width: 0;
+  min-height: 32px;
+  border: 0;
+  padding: 0 8px;
+  color: #46515f;
+  background: transparent;
+}
+
+.text-button.warning {
+  color: #b7791f;
+}
+
+.text-button.danger {
+  color: #c2412d;
+}
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(27, 31, 36, 0.25);
+}
+
+.correction-dialog {
+  position: relative;
+  display: grid;
+  gap: 18px;
+  width: min(920px, 100%);
+  max-height: min(720px, calc(100vh - 40px));
+  overflow: auto;
+  border: 1px solid #d7d0c2;
+  border-radius: 16px;
+  padding: 38px 40px;
+  background: #e9e3d8;
+  box-shadow: 0 20px 80px rgba(27, 31, 36, 0.22);
+}
+
+.close-button {
+  position: absolute;
+  top: 40px;
+  right: 40px;
+  min-width: 36px;
+  width: 36px;
+  min-height: 36px;
+  border-radius: 999px;
+  padding: 0;
+  color: #ffffff;
+  background: #6b6a67;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.dialog-hint {
+  margin: 0;
+  color: #6d747d;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.token-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid #ddd6ca;
+}
+
+.token {
+  min-width: 64px;
+  width: 64px;
+  min-height: 64px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 0;
+  color: #17191c;
+  background: #f3eee5;
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.token.selected {
+  border-color: #2f6f5e;
+  color: #ffffff;
+  background: #2f6f5e;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 14px;
 }
 
 @media (max-width: 560px) {
@@ -247,7 +408,32 @@ input {
     grid-template-columns: 1fr;
   }
 
+  .history-search-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .mode-selector {
+    grid-template-columns: 1fr 1fr;
+  }
+
   button {
     width: 100%;
+  }
+
+  .correction-dialog {
+    padding: 28px 20px;
+  }
+
+  .close-button {
+    top: 24px;
+    right: 20px;
+    width: 36px;
+  }
+
+  .token {
+    min-width: 48px;
+    width: 48px;
+    min-height: 48px;
+    font-size: 21px;
   }
 }
