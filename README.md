@@ -1,5 +1,7 @@
 # Voice-output 智能语音输入法 MVP
 
+演示视频链接: https://pan.baidu.com/s/1J23AxRUU3g7gmuSUfpIjRw?pwd=vgbe 提取码: vgbe 复制这段内容后打开百度网盘手机App，操作更方便哦
+
 ## 一、项目简介
 
 本项目是一款面向学习、办公和日常输入场景的智能语音输入法产品，目标是帮助用户通过语音快速完成文本输入，提高文本输入效率。
