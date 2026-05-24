@@ -1,9 +1,9 @@
 from typing import Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from app.services.text_service import optimize_text
+from app.services.text_service import TextOptimizationError, optimize_text_with_provider
 
 router = APIRouter(prefix="/api/text", tags=["text"])
 
@@ -16,8 +16,11 @@ class TextOptimizeRequest(BaseModel):
 
 
 @router.post("/optimize")
-def optimize_text_endpoint(request: TextOptimizeRequest) -> dict[str, object]:
-    result = optimize_text(request.text, request.mode)
+async def optimize_text_endpoint(request: TextOptimizeRequest) -> dict[str, object]:
+    try:
+        result = await optimize_text_with_provider(request.text, request.mode)
+    except TextOptimizationError as error:
+        raise HTTPException(status_code=error.status_code, detail=str(error)) from error
 
     return {
         "code": 200,
@@ -26,5 +29,6 @@ def optimize_text_endpoint(request: TextOptimizeRequest) -> dict[str, object]:
             "original_text": result.original_text,
             "optimized_text": result.optimized_text,
             "mode": result.mode,
+            "provider": result.provider,
         },
     }

@@ -17,7 +17,7 @@ type ApiErrorResponse = {
 
 export async function transcribeAudio(audioBlob: Blob, mode = "normal") {
   const formData = new FormData();
-  formData.append("file", audioBlob, "recording.webm");
+  formData.append("file", audioBlob, `recording.${getAudioExtension(audioBlob.type)}`);
   formData.append("mode", mode);
 
   const response = await fetch(`${API_BASE_URL}/api/asr/transcribe`, {
@@ -39,4 +39,17 @@ export async function transcribeAudio(audioBlob: Blob, mode = "normal") {
   }
 
   return (await response.json()) as TranscribeResponse;
+}
+
+function getAudioExtension(mimeType: string) {
+  if (mimeType.includes("mp4")) {
+    return "mp4";
+  }
+  if (mimeType.includes("ogg")) {
+    return "ogg";
+  }
+  if (mimeType.includes("wav")) {
+    return "wav";
+  }
+  return "webm";
 }

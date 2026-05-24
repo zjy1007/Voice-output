@@ -1,6 +1,14 @@
+import os
 import re
 from dataclasses import dataclass
 from typing import Literal
+
+import httpx
+from dotenv import load_dotenv
+
+from app.services.hotword_service import apply_hotword_corrections, list_hotwords
+
+load_dotenv()
 
 TextMode = Literal["normal", "office", "study"]
 
@@ -10,6 +18,13 @@ class TextOptimizationResult:
     original_text: str
     optimized_text: str
     mode: TextMode
+    provider: str = "rules"
+
+
+class TextOptimizationError(Exception):
+    def __init__(self, message: str, status_code: int = 502) -> None:
+        super().__init__(message)
+        self.status_code = status_code
 
 
 PUNCTUATION_REPLACEMENTS = {
@@ -24,9 +39,21 @@ PUNCTUATION_REPLACEMENTS = {
 }
 
 
-def optimize_text(text: str, mode: TextMode = "normal") -> TextOptimizationResult:
+async def optimize_text_with_provider(
+    text: str,
+    mode: TextMode = "normal",
+) -> TextOptimizationResult:
+    provider = os.getenv("TEXT_OPTIMIZER_PROVIDER", "rules").lower()
+    if provider == "deepseek":
+        return await optimize_text_with_deepseek(text, mode)
+
+    return optimize_text_with_rules(text, mode)
+
+
+def optimize_text_with_rules(text: str, mode: TextMode = "normal") -> TextOptimizationResult:
     original_text = text.strip()
-    normalized = normalize_spacing(original_text)
+    hotword_corrected = apply_hotword_corrections(original_text)
+    normalized = normalize_spacing(hotword_corrected)
     punctuated = add_punctuation(normalized)
 
     if mode == "office":
@@ -40,6 +67,98 @@ def optimize_text(text: str, mode: TextMode = "normal") -> TextOptimizationResul
         original_text=original_text,
         optimized_text=optimized,
         mode=mode,
+        provider="rules",
+    )
+
+
+async def optimize_text_with_deepseek(
+    text: str,
+    mode: TextMode = "normal",
+) -> TextOptimizationResult:
+    api_key = os.getenv("DEEPSEEK_API_KEY")
+    if not api_key:
+        raise TextOptimizationError(
+            "DEEPSEEK_API_KEY is required when TEXT_OPTIMIZER_PROVIDER=deepseek.",
+            status_code=400,
+        )
+
+    original_text = text.strip()
+    if not original_text:
+        raise TextOptimizationError("Text cannot be empty.", status_code=400)
+
+    base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com").rstrip("/")
+    model = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
+
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            response = await client.post(
+                f"{base_url}/chat/completions",
+                headers={"Authorization": f"Bearer {api_key}"},
+                json={
+                    "model": model,
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": build_deepseek_system_prompt(mode),
+                        },
+                        {
+                            "role": "user",
+                            "content": build_deepseek_user_prompt(original_text),
+                        },
+                    ],
+                    "temperature": 0.2,
+                    "stream": False,
+                },
+            )
+            response.raise_for_status()
+    except httpx.HTTPStatusError as error:
+        raise TextOptimizationError(
+            f"DeepSeek returned {error.response.status_code}: {error.response.text}",
+            status_code=error.response.status_code,
+        ) from error
+    except httpx.HTTPError as error:
+        raise TextOptimizationError(f"DeepSeek request failed: {error}") from error
+
+    data = response.json()
+    try:
+        optimized = data["choices"][0]["message"]["content"].strip()
+    except (KeyError, IndexError, TypeError) as error:
+        raise TextOptimizationError("DeepSeek response did not include content.") from error
+
+    return TextOptimizationResult(
+        original_text=original_text,
+        optimized_text=optimized,
+        mode=mode,
+        provider="deepseek",
+    )
+
+
+def build_deepseek_system_prompt(mode: TextMode) -> str:
+    shared_rule = (
+        "你是智能语音输入法的中文文本后处理模块。"
+        "请只输出优化后的文本，不要解释。"
+        "任务包括自动标点、合理断句、修正明显口语冗余，并保留原意。"
+    )
+
+    if mode == "office":
+        return f"{shared_rule} 当前模式是办公模式：表达要正式、清晰、适合会议纪要或工作汇报。"
+
+    if mode == "study":
+        return f"{shared_rule} 当前模式是学习笔记：尽量整理为条目化、层次清楚的笔记。"
+
+    return f"{shared_rule} 当前模式是普通输入：保留自然表达，让文本易读即可。"
+
+
+def build_deepseek_user_prompt(text: str) -> str:
+    hotwords = list_hotwords()
+    if not hotwords:
+        return text
+
+    return (
+        "请优先保留和纠正以下自定义热词："
+        + "、".join(hotwords)
+        + "\n\n待优化文本："
+        + text
     )
 
 
